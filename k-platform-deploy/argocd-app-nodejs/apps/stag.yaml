@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nodejs-app-stag
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/<your-username>/k-helm-charts.git'
+    targetRevision: HEAD
+    path: nodejs-app-chart
+    helm:
+      valueFiles:
+        - https://raw.githubusercontent.com/<your-username>/k-platform-deploy/main/argocd-app-nodejs/environments/stag/values.yaml
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: nodejs-app-stag
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

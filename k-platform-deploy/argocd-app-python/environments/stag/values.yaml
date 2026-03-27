@@ -1,0 +1,6 @@
+# STAG values.yaml
+replicaCount: 3
+env:
+  - name: APP_ENV
+    value: "STAGING"
+

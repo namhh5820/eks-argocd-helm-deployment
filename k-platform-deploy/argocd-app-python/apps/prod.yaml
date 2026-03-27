@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: python-app-prod
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/<your-username>/k-helm-charts.git'
+    targetRevision: HEAD
+    path: python-app-chart
+    helm:
+      valueFiles:
+        - https://raw.githubusercontent.com/<your-username>/k-platform-deploy/main/argocd-app-python/environments/prod/values.yaml
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: python-app-prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
