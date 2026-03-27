@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: karpenter-resources
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/<your-username>/k-platform-deploy.git'
+    targetRevision: HEAD
+    path: karpenter-config
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: karpenter
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

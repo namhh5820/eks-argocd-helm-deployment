@@ -1,0 +1,13 @@
+{{- if .Values.podDisruptionBudget.enabled -}}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "nodejs-app-chart.fullname" . }}
+  labels:
+    {{- include "nodejs-app-chart.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "nodejs-app-chart.selectorLabels" . | nindent 6 }}
+{{- end }}

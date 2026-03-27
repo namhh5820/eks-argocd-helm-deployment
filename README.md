@@ -7,6 +7,9 @@ This project contains:
 - `k-platform-deploy/`: ArgoCD Application manifests and environment-specific values.
     - `argocd-app-python/`: Python deployment manifests and values.
     - `argocd-app-nodejs/`: Node.js deployment manifests and values.
+- `k-platform-deploy/karpenter-config/`: Karpenter NodePool and EC2NodeClass configuration.
+- `k-platform-deploy/argocd-app-karpenter.yaml`: ArgoCD application to install Karpenter controller.
+- `k-platform-deploy/argocd-app-karpenter-resources.yaml`: ArgoCD application to manage Karpenter resources.
 
 ## Instructions
 
@@ -26,7 +29,7 @@ git push -u origin main
 # Push Platform Deployment manifests
 cd ../k-platform-deploy
 git add .
-git commit -m "restructure platform deploy"
+git commit -m "add karpenter and ha config"
 git remote add origin https://github.com/<your-username>/k-platform-deploy.git
 git branch -M main
 git push -u origin main
@@ -34,11 +37,23 @@ git push -u origin main
 
 ### 2. Update Repo URLs
 
-Before pushing, search and replace `<your-username>` in `k-platform-deploy/**/apps/*.yaml` with your actual GitHub username.
+Before pushing, search and replace `<your-username>` in `k-platform-deploy/**/*.yaml` with your actual GitHub username.
 
-### 3. Deploy to EKS using ArgoCD
+### 3. Deploy Karpenter and Apps to EKS using ArgoCD
 
-Ensure your `kubectl` is pointed to your EKS cluster. Then, apply the ArgoCD applications:
+Ensure your `kubectl` is pointed to your EKS cluster. First, deploy Karpenter:
+
+```bash
+# Deploy Karpenter Controller
+kubectl apply -f k-platform-deploy/argocd-app-karpenter.yaml
+
+# Deploy Karpenter Resources (NodePool/EC2NodeClass)
+kubectl apply -f k-platform-deploy/argocd-app-karpenter-resources.yaml
+```
+
+*Note: Ensure you update the clusterName and role in `argocd-app-karpenter.yaml` and `karpenter-config/karpenter-resources.yaml` to match your cluster details.*
+
+Then, apply the ArgoCD applications:
 
 ```bash
 # Python App
