@@ -5,87 +5,74 @@ This project contains:
 - `nodejs-app/`: A simple Node.js Express application.
 - `k-helm-charts/`: Helm charts for both Python and Node.js apps.
 - `k-platform-deploy/`: ArgoCD Application manifests and environment-specific values.
-    - `argocd-app-python/`: Python deployment manifests and values.
-    - `argocd-app-nodejs/`: Node.js deployment manifests and values.
-- `k-platform-deploy/karpenter-config/`: Karpenter NodePool and EC2NodeClass configuration.
-- `k-platform-deploy/argocd-app-karpenter.yaml`: ArgoCD application to install Karpenter controller.
-- `k-platform-deploy/argocd-app-karpenter-resources.yaml`: ArgoCD application to manage Karpenter resources.
+- `k-iac/`: Infrastructure as Code (IaC) using Terragrunt/Terraform.
+- `.github/workflows/`: GitHub Action CI/CD pipelines.
 
-## Instructions
+## 🚀 CI/CD Workflows (GitHub Actions)
 
-### 1. Push to GitHub
+We have implemented automated CI pipelines for both applications:
+- **Location:** `.github/workflows/nodejs-ci.yml` and `.github/workflows/python-ci.yml`
+- **Authentication:** AWS OIDC connection assuming the `Terraform-SSO` role.
+- **Build & Push:** Builds Docker images and pushes to Amazon ECR.
+- **Tagging:** Uses `branch-commit-id` format.
+- **GitOps:** Automatically updates `image.tag` in `k-platform-deploy/argocd-app-*/environments/prod/values.yaml` and commits back to the repo.
+- **Notifications:** Sends status updates to Slack.
 
-Create two repositories on GitHub: `k-helm-charts` and `k-platform-deploy`.
+**Required Secrets:**
+- `AWS_ACCOUNT_ID`: Your AWS Account ID.
+- `SLACK_WEBHOOK_URL`: Your Slack channel webhook.
 
+## 🏗️ Infrastructure as Code (Terragrunt)
+
+The `k-iac/` folder contains the infrastructure definition using Terragrunt and official AWS modules.
+
+### Components:
+1.  **VPC (`k-iac/vpc`):**
+    - CIDR: `10.10.0.0/16`
+    - 3 AZs with Public, Private, and Database subnets.
+    - NAT Gateway enabled in each AZ for high availability.
+2.  **EKS Cluster (`k-iac/eks`):**
+    - Private mode (API access restricted to VPC/Bastion).
+    - Managed Node Group `k-app-ng` (Instance: `m4.xlarge`, Scale: 2-5).
+    - Add-ons: VPC CNI and EBS CSI Driver.
+3.  **RDS PostgreSQL (`k-iac/rds`):**
+    - Primary + 1 Read Replica in database subnets.
+    - Random complex password generated and stored in AWS Secrets Manager (`k-rds-prod`).
+4.  **Bastion Host (`k-iac/bastion`):**
+    - Secure entry point in public subnet.
+    - SSH restricted to specific Office/Home IPs.
+    - SSH Private Key stored in AWS Secrets Manager (`k-bastion-ssh-key`).
+
+### How to Deploy Infrastructure:
 ```bash
-# Push Helm Charts
-cd k-helm-charts
-git add .
-git commit -m "update helm charts"
-git remote add origin https://github.com/<your-username>/k-helm-charts.git
-git branch -M main
-git push -u origin main
-
-# Push Platform Deployment manifests
-cd ../k-platform-deploy
-git add .
-git commit -m "add karpenter and ha config"
-git remote add origin https://github.com/<your-username>/k-platform-deploy.git
-git branch -M main
-git push -u origin main
+cd k-iac
+terragrunt run-all plan
+terragrunt run-all apply
 ```
 
-### 2. Update Repo URLs
+### Accessing the Cluster:
+A helper script is provided to assume the necessary role and configure `kubectl`:
+```bash
+cd k-iac/eks
+./k-eks-access-prod.sh
+```
 
+## 🛠️ ArgoCD Deployment
+
+### 1. Update Repo URLs
 Before pushing, search and replace `<your-username>` in `k-platform-deploy/**/*.yaml` with your actual GitHub username.
 
-### 3. Deploy Karpenter and Apps to EKS using ArgoCD
-
-Ensure your `kubectl` is pointed to your EKS cluster. First, deploy Karpenter:
+### 2. Deploy Karpenter and Apps
+Ensure your `kubectl` is pointed to your EKS cluster.
 
 ```bash
-# Deploy Karpenter Controller
+# Deploy Karpenter Controller & Resources
 kubectl apply -f k-platform-deploy/argocd-app-karpenter.yaml
-
-# Deploy Karpenter Resources (NodePool/EC2NodeClass)
 kubectl apply -f k-platform-deploy/argocd-app-karpenter-resources.yaml
-```
 
-*Note: Ensure you update the clusterName and role in `argocd-app-karpenter.yaml` and `karpenter-config/karpenter-resources.yaml` to match your cluster details.*
-
-Then, apply the ArgoCD applications:
-
-```bash
-# Python App
-kubectl apply -f k-platform-deploy/argocd-app-python/apps/qa.yaml
-kubectl apply -f k-platform-deploy/argocd-app-python/apps/stag.yaml
+# Deploy Apps via ArgoCD
 kubectl apply -f k-platform-deploy/argocd-app-python/apps/prod.yaml
-
-# Node.js App
-kubectl apply -f k-platform-deploy/argocd-app-nodejs/apps/qa.yaml
-kubectl apply -f k-platform-deploy/argocd-app-nodejs/apps/stag.yaml
 kubectl apply -f k-platform-deploy/argocd-app-nodejs/apps/prod.yaml
 ```
 
-ArgoCD will automatically:
-1. Fetch the Helm chart from `k-helm-charts`.
-2. Apply the values from the raw GitHub URLs in `k-platform-deploy`.
-3. Create the namespaces and deploy the app to EKS.
-
-### 4. Docker Images
-
-Build and push your Docker images:
-
-```bash
-# Python App
-cd python-app
-docker build -t <your-image-repository>/python-app:latest .
-docker push <your-image-repository>/python-app:latest
-
-# Node.js App
-cd ../nodejs-app
-docker build -t <your-image-repository>/nodejs-app:latest .
-docker push <your-image-repository>/nodejs-app:latest
-```
-
-Update `k-helm-charts/*/values.yaml` with the actual `<your-image-repository>`.
+ArgoCD will automatically fetch the Helm charts from `k-helm-charts` and apply the environment-specific values from `k-platform-deploy`.
