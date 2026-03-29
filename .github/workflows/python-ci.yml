@@ -1,0 +1,74 @@
+name: Python App CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'python-app/**'
+
+permissions:
+  id-token: write # Required for OIDC
+  contents: write # Required to push gitops changes
+
+env:
+  AWS_REGION: us-east-1 # Change to your region
+  ECR_REPOSITORY: python-app # Change to your ECR repo name
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/Terraform-SSO
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set Image Tag
+        id: vars
+        run: |
+          # Replacing / with - in branch name and using 7 characters of SHA
+          BRANCH_NAME=$(echo ${GITHUB_REF_NAME} | tr '/' '-')
+          IMAGE_TAG="${BRANCH_NAME}-${GITHUB_SHA::7}"
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+          echo "tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build, Tag, and Push Image to ECR
+        uses: docker/build-push-action@v5
+        with:
+          context: ./python-app
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+
+      - name: Update GitOps Repository
+        run: |
+          # Update the tag in the values.yaml file
+          # Ensure image.tag exists or add it
+          yq -i ".image.tag = \"${{ env.IMAGE_TAG }}\"" k-platform-deploy/argocd-app-python/environments/prod/values.yaml
+          
+          # Commit and Push the change
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add k-platform-deploy/argocd-app-python/environments/prod/values.yaml
+          git commit -m "chore(gitops): update python-app image tag to ${{ env.IMAGE_TAG }}"
+          git push
+
+      - name: Send Slack Notification
+        if: always()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "Python CI Build: ${{ job.status }}\nBranch: ${{ github.ref_name }}\nTag: ${{ env.IMAGE_TAG }}\nWorkflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
