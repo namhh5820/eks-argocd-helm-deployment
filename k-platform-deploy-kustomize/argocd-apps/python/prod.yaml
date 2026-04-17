@@ -1,17 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: python-app-kustomize-stag
+  name: python-app-kustomize-prod
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: 'https://github.com/<your-username>/eks-argocd-helm-deployment.git'
     targetRevision: HEAD
-    path: k-platform-deploy-Kustomize/overlays/stag
+    path: k-platform-deploy-kustomize/python-app/overlays/prod
   destination:
     server: 'https://kubernetes.default.svc'
-    namespace: python-app-stag
+    namespace: python-app-prod
   syncPolicy:
     automated:
       prune: true

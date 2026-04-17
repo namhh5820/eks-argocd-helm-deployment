@@ -1,17 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: python-app-kustomize-prod
+  name: python-app-kustomize-qa
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: 'https://github.com/<your-username>/eks-argocd-helm-deployment.git'
     targetRevision: HEAD
-    path: k-platform-deploy-Kustomize/overlays/prod
+    path: k-platform-deploy-kustomize/python-app/overlays/qa
   destination:
     server: 'https://kubernetes.default.svc'
-    namespace: python-app-prod
+    namespace: python-app-qa
   syncPolicy:
     automated:
       prune: true
