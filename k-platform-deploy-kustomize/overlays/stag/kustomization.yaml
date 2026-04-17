@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../../base
+
+namespace: python-app-stag
+
+helmCharts:
+- name: python-app-chart
+  releaseName: python-app
+  repo: https://<your-username>.github.io/k-helm-charts/
+  version: 0.1.0
+  valuesFile: values.yaml
+  valuesInline:
+    fullnameOverride: python-app
