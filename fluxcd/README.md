@@ -1,14 +1,13 @@
 # FluxCD GitOps Deployment
 
-This directory contains the FluxCD configuration for managing the Node.js and Python applications across multiple Kubernetes clusters using a GitOps approach.
+This directory contains the FluxCD configuration for managing the Node.js and Python applications in a single-cluster environment.
 
-## 🏗️ Architecture: Multi-Cluster Base/Overlay
+## 📁 Structure
 
-We use a hierarchical structure to maintain clean, DRY (Don't Repeat Yourself) configurations:
-
-- **`base/`**: Contains the core `HelmRelease` definitions and Git sources shared by all environments.
-- **`overlays/`**: Environment-specific patches (Prod, QA, Staging) that override replicas, environment variables, and names.
-- **`clusters/`**: The entry point for each physical cluster. Each cluster points to its respective overlay.
+- **`sources/`**: Defines the GitRepository source pointing to this repo.
+- **`apps/`**: Contains the HelmRelease definitions for the Node.js and Python applications.
+- **`kustomization.yaml`**: Aggregates all manifests for easy application.
+- **`cluster-sync.yaml`**: The Flux Kustomization that manages the synchronization of this directory.
 
 ---
 
@@ -16,57 +15,34 @@ We use a hierarchical structure to maintain clean, DRY (Don't Repeat Yourself) c
 
 ### 1. Prerequisites
 - [Flux CLI](https://fluxcd.io/flux/installation/) installed locally.
-- A Kubernetes cluster for each environment (QA, Staging, Prod).
-- `kubectl` context set to the target cluster.
+- Access to a Kubernetes cluster.
 
-### 2. Initial Bootstrap (Source)
-Before deploying applications, Flux needs to know where to find the source code. On **each** cluster, run:
+### 2. Initial Setup
+On your cluster, apply the source and the sync manifest:
 
 ```bash
-# Apply the GitRepository source
-kubectl apply -f fluxcd/base/sources/main-repo.yaml
+# 1. Apply the GitRepository source
+kubectl apply -f fluxcd/sources/main-repo.yaml
+
+# 2. Apply the Cluster Sync (this will deploy the apps)
+kubectl apply -f fluxcd/cluster-sync.yaml
 ```
 
-*Note: Ensure you update the `url` in `fluxcd/base/sources/main-repo.yaml` to point to your actual repository.*
-
-### 3. Deploy to a Specific Cluster
-
-Execute the following commands based on which cluster you are currently connected to:
-
-#### **Production Cluster**
-```bash
-kubectl apply -f fluxcd/clusters/prod-cluster/cluster-sync.yaml
-```
-
-#### **Staging Cluster**
-```bash
-kubectl apply -f fluxcd/clusters/stag-cluster/cluster-sync.yaml
-```
-
-#### **QA Cluster**
-```bash
-kubectl apply -f fluxcd/clusters/qa-cluster/cluster-sync.yaml
-```
+*Note: Ensure you update the `url` in `fluxcd/sources/main-repo.yaml` to point to your actual repository.*
 
 ---
 
-## 🔍 Monitoring and Validation
+## 🔍 Monitoring
 
-After applying the `cluster-sync.yaml`, you can monitor the progress with these commands:
+Monitor the status of your GitOps deployment:
 
 ```bash
-# Check the status of the Kustomization sync
+# Check sync status
 flux get kustomizations
 
-# Check the status of the Helm releases
+# Check application status
 flux get helmreleases -A
 
-# View logs for a specific sync
+# View Flux logs
 flux logs --level=info
 ```
-
-## 🛠️ Modifying Configurations
-
-1.  **To change a global setting**: Modify files in `fluxcd/base/`.
-2.  **To change an environment-specific setting**: Modify the `patches` in `fluxcd/overlays/<env>/kustomization.yaml`.
-3.  **To add a new cluster**: Create a new folder in `fluxcd/clusters/` and point it to the desired overlay.

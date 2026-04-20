@@ -1,0 +1,50 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: nodejs-app-prod
+  namespace: nodejs-app-prod
+spec:
+  interval: 5m
+  install:
+    createNamespace: true
+  chart:
+    spec:
+      chart: k-helm-charts/nodejs-app-chart
+      sourceRef:
+        kind: GitRepository
+        name: main-repo
+        namespace: flux-system
+      interval: 1m
+  values:
+    replicaCount: 5
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 2
+    resources:
+      requests:
+        cpu: 256m
+        memory: 512Mi
+      limits:
+        cpu: 512m
+        memory: 1Gi
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 20
+      targetCPUUtilizationPercentage: 70
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: "topology.kubernetes.io/zone"
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: nodejs-app-chart
+      - maxSkew: 1
+        topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: nodejs-app-chart
+    env:
+      - name: APP_ENV
+        value: "PRODUCTION"
