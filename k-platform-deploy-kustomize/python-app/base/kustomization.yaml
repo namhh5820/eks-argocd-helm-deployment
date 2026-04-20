@@ -1,5 +1,0 @@
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-# Base is empty as common Helm logic is now moved to overlays 
-# to support environment-specific values.yaml files.

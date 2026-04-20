@@ -1,0 +1,42 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base/apps/nodejs/release.yaml
+  - ../../base/apps/python/release.yaml
+  - ../../base/sources/main-repo.yaml
+
+patches:
+  - target:
+      kind: HelmRelease
+      name: nodejs-app
+    patch: |
+      - op: replace
+        path: /metadata/name
+        value: nodejs-app-prod
+      - op: replace
+        path: /metadata/namespace
+        value: nodejs-app-prod
+      - op: add
+        path: /spec/values
+        value:
+          replicaCount: 5
+          env:
+            - name: APP_ENV
+              value: "PRODUCTION"
+  - target:
+      kind: HelmRelease
+      name: python-app
+    patch: |
+      - op: replace
+        path: /metadata/name
+        value: python-app-prod
+      - op: replace
+        path: /metadata/namespace
+        value: python-app-prod
+      - op: add
+        path: /spec/values
+        value:
+          replicaCount: 5
+          env:
+            - name: APP_ENV
+              value: "PRODUCTION"
